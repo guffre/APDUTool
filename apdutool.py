@@ -23,7 +23,9 @@ from smartcard.System import readers
 from smartcard.util import toHexString
 from smartcard.CardConnection import CardConnection
 
+import re
 import itertools
+import struct
 
 class main_window(Tkinter.Tk):
     def __init__(self,parent):
@@ -272,11 +274,111 @@ class main_window(Tkinter.Tk):
             widget.delete("1.0",Tkinter.END)
         widget.insert(Tkinter.END, text)
     
+    def do_bruteforce(self):
+        def bruteforce_parse(name, r=None, get_input=True):
+            if get_input:
+                range_input = self.bf_ranges[name].get("1.0", Tkinter.END)
+            else:
+                range_input = r
+            ret = set()
+            singles = re.findall("[0-9a-f]{2}", range_input, re.IGNORECASE)
+            ranges = re.findall("([0-9a-f]{2})-([0-9a-f]{2})", range_input, re.IGNORECASE)
+            for val in singles:
+                ret.add(int(val,16))
+            for lo,hi in ranges:
+                ret.update(list(range(int(lo,16), int(hi,16))))
+            return ret
+
+        # Looks like:   02 03 [5-10,18] [99]
+        def parse_command(com):
+            bytes = []
+            tmp = com.split(" ")
+            if len(tmp) < 1:
+                return [[None]]
+            for b in tmp:
+                bytes.append(bruteforce_parse(None, b, False))
+            return bytes
+        
+        def command_length(com_length):
+            if com_length == 0: # Zero bytes
+                print("command_length 0?")
+            elif com_length < 0xff: # One byte
+                return [com_length]
+            else: # Three bytes
+                bytes = [0]
+                bytes.extend(struct.unpack("bb", struct.pack(">h", com_length)))
+                return bytes
+
+        checkbox = 0
+        bfrange = 1
+        allbytes = 0
+        cla = set()
+        ins = set()
+        p1 = set()
+        p2 = set()
+        lc = set()
+        le = set()
+        ordered = [cla, ins, p1, p2, lc, le]
+        for i,name in enumerate(self.labelorder):
+            var = self.bruteforce_check[name]
+            if var[checkbox].get():
+                if var[bfrange].get() == allbytes:
+                    ordered[i].update(list(range(0,256)))
+                else:
+                    ordered[i].update(bruteforce_parse(name))
+            else:
+                byte = self.inputs[name].get()
+                print("Stringvar get: {}".format(byte))
+                if byte.lower() == "x":
+                    # Auto mode for Lc
+                    ordered[i].update([None])
+                else:
+                    byte = int(byte, 16)
+                    ordered[i].add(byte)
+
+        command = self._input.get("1.0",Tkinter.END)
+        command = parse_command(command)
+        print("command after parse: {}".format(command))
+        # command will look like: [set(0), set(3,30,33), set(0), set(0)]
+        for line in itertools.product(cla, ins, p1, p2, lc, le):
+            for com in itertools.product(*command):
+                out = list(line[:4])
+                if com[0] == None:
+                    print("no command bytes?")
+                    if le != None:
+                        out.append(le)
+                    self.send_apdu(out)
+                else:
+                    if line[4] == None:
+                        out.extend(command_length(com))
+                    else:
+                        out.extend(command_length(line[4]))
+                    out.extend(com)
+                    if le != None:
+                        out.append(le)
+                    self.send_apdu(out)
+
+    # Current limitations:
+        # le can only be None or 00 (representing 256 bytes)
+        # Auto mode for Lc is not in the gui
+    def send_apdu(self, line):
+        print("transmitting: {}".format(line))
+        data, sw1, sw2 = self.connection.transmit(line)
+        self.output_data.append(["%02x" % sw1, "%02x" % sw2, data])
+        for sw1,sw2,data in self.output_data:
+            # Todo: ASCII / Hex switch
+            if True: # If HEX
+                self.write(self._output, "Response Bytes: {} {}\nResponse Data: {}\n".format(sw1,sw2,data),True)
+            else: # if ASCII
+                tmp = ""
+                for char in data:
+                    tmp += chr(char) if (char > 31 or char < 128) else '.'
+                self.write(self._output, "Response Bytes: {} {}\nResponse Data: {}\n".format(sw1,sw2,tmp),True)
+   
     def execute(self):
         # Check if its in scripting mode first
         if self.mode.get():
-            pass
-            # Todo: bruteforcing
+            self.do_bruteforce()
         else:
             for line in self._input.get("1.0",Tkinter.END).split("\n"):
                 line = [int(n,16) for n in line.split()]
