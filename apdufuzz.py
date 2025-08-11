@@ -1,7 +1,13 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+import sys
 import smartcard
+
 from smartcard.System import readers
 from smartcard.util import toHexString
+
+# Python 2/3 compatability
+if sys.version_info.major == 2:
+    input = raw_input
 
 import re
 import sys
@@ -65,13 +71,13 @@ def reader_select():
             print("Please select a reader:")
             for i,reader in enumerate(r):
                 print("{}] {}".format(i+1,reader))
-            select = int(raw_input("> "))
+            select = int(input("> "))-1
         except:
             print("Invalid selection.")
     return r[select]
 
 def get_command():
-    command = raw_input("Please enter your command:\n> ")
+    command = input("Please enter your command:\n> ")
     return command.split()
 
 # ./apdufuzz.py 0 00 a4 04 00 xx a0 00 00 00-08 00,03,11,22,33,44,55,66,77,88,99 00,01,10,11,20,30 00,01,10,11,20,30 *00

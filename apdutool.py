@@ -1,21 +1,21 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
-import Tkinter
-from Tkinter import Label
-from Tkinter import StringVar
-from Tkinter import Entry
-from Tkinter import OptionMenu
-from Tkinter import Frame
-from Tkinter import Menu
-from Tkinter import Toplevel
-from Tkinter import Button
-from Tkinter import Text
-from Tkinter import PanedWindow
-from Tkinter import Frame
-from Tkinter import Scrollbar
-from Tkinter import Checkbutton
-from Tkinter import IntVar
-from Tkinter import Radiobutton
+# Python 2/3 compatability
+try:
+    import Tkinter
+    from Tkinter import (
+        Label,StringVar, Entry, OptionMenu, Frame, Menu, Toplevel,
+        Button, Text, PanedWindow, Frame, Scrollbar, Checkbutton,
+        IntVar, Radiobutton
+    )
+except:
+    import tkinter as Tkinter
+    from tkinter import (
+        Label,StringVar, Entry, OptionMenu, Frame, Menu, Toplevel,
+        Button, Text, PanedWindow, Frame, Scrollbar, Checkbutton,
+        IntVar, Radiobutton
+    )
+
 from tkinter.scrolledtext import ScrolledText
 
 import smartcard
@@ -65,7 +65,7 @@ class main_window(Tkinter.Tk):
                 data_string = ''.join(chr(n) for n in data if n > 31 and n < 128)
                 self.ATR_display.set("ATR (Answer to Reset): {} | {}".format(toHexString(data),data_string))
                 print(toHexString(data))
-            except smartcard.Exceptions.CardConnectionException, e:
+            except smartcard.Exceptions.CardConnectionException as e:
                 self.error(e.message)
             except:
                 self.error("You need to select a reader from Settings->Reader")
